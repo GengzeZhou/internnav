@@ -22,8 +22,31 @@ class LerobotAsLmdb:
         return keys
     
     def get_data_by_key(self, key):
-        scan = key.split('_')[0]
-        trajectory = key.split('_')[1]
+        # Special handling for vlnverse dataset (user's custom data)
+        if 'vlnverse' in self.dataset_path:
+            # For vlnverse: keys like 'kujiale_0003_40_0'
+            # Scene is always 'kujiale_XXXX' (2 parts), rest is trajectory
+            parts = key.split('_')
+            if len(parts) >= 4 and parts[0] == 'kujiale':
+                # kujiale_0003_40_0 -> scan='kujiale_0003', trajectory='40_0'
+                scan = '_'.join(parts[:2])  # 'kujiale_0003'
+                trajectory = '_'.join(parts[2:])  # '40_0'
+            else:
+                # Fallback for non-kujiale scenes
+                scan = '_'.join(parts[:-1])
+                trajectory = parts[-1]
+        else:
+            # Original logic for other datasets (like interiornav)
+            # Handle keys like 'kujiale_0065_861' -> scan='kujiale_0065', trajectory='861'
+            parts = key.split('_')
+            if len(parts) >= 3:
+                # For keys like 'kujiale_0065_861'
+                scan = '_'.join(parts[:-1])  # 'kujiale_0065'
+                trajectory = parts[-1]       # '861'
+            else:
+                # Fallback for simple keys like 'scan_traj'
+                scan = parts[0]
+                trajectory = parts[1]
         trajectory_path = os.path.join(self.dataset_path, scan, trajectory)
         parquet_path = os.path.join(trajectory_path, "data/chunk-000/episode_000000.parquet")
         json_path = os.path.join(trajectory_path, "meta/episodes.jsonl")
