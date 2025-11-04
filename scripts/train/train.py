@@ -30,9 +30,14 @@ from internnav.trainer import CMATrainer, RDPTrainer, NavDPTrainer
 from scripts.train.configs import (
     cma_exp_cfg,
     cma_plus_exp_cfg,
+    cma_grutopia_exp_cfg,
+    cma_grutopia_test_exp_cfg,
+    cma_grutopia_clip_exp_cfg,
+    cma_your_data_exp_cfg,
     rdp_exp_cfg,
     seq2seq_exp_cfg,
     seq2seq_plus_exp_cfg,
+    seq2seq_your_data_exp_cfg,
     navdp_exp_cfg,
 )
 import sys
@@ -204,8 +209,19 @@ def main(config, model_class, model_config_class):
             global_batch_size = config.il.batch_size * len(config.torch_gpu_ids)
 
         # ------------ data_loader ------------
-        if config.model_name in ['cma', 'seq2seq']:
+        if config.model_name in ['cma', 'cma_plus', 'cma_grutopia', 'cma_grutopia_test', 'cma_grutopia_clip', 'cma_your_data', 'seq2seq', 'seq2seq_plus','seq2seq_your_data']:
             policy_trainer = CMATrainer
+
+            # Setup BERT tokenizer if text_encoder is configured
+            bert_tokenizer = None
+            if hasattr(config.model, 'text_encoder') and config.model.text_encoder is not None:
+                if config.model.text_encoder.type == 'clip-long':
+                    from internnav.model.basemodel.LongCLIP.model import longclip
+                    bert_tokenizer = longclip.tokenize
+            elif hasattr(config.model, 'policy_name') and config.model.policy_name == 'CMA_CLIP_Policy':
+                from internnav.model.basemodel.LongCLIP.model import longclip
+                bert_tokenizer = longclip.tokenize
+
             train_dataset = CMALerobotDataset(
                 config,
                 config.il.lerobot_features_dir,
@@ -214,6 +230,7 @@ def main(config, model_class, model_config_class):
                 inflection_weight_coef=config.il.inflection_weight_coef,
                 lmdb_map_size=config.il.lmdb_map_size,
                 batch_size=config.il.batch_size,
+                bert_tokenizer=bert_tokenizer,  # Pass tokenizer for automatic tokenization
             )
             collate_fn = cma_collate_fn
 
@@ -306,8 +323,13 @@ if __name__ == '__main__':
     supported_cfg = {
         'seq2seq': [seq2seq_exp_cfg, Seq2SeqNet, Seq2SeqModelConfig],
         'seq2seq_plus': [seq2seq_plus_exp_cfg, Seq2SeqNet, Seq2SeqModelConfig],
+        'seq2seq_your_data': [seq2seq_your_data_exp_cfg, Seq2SeqNet, Seq2SeqModelConfig],
         'cma': [cma_exp_cfg, CMANet, CMAModelConfig],
         'cma_plus': [cma_plus_exp_cfg, CMANet, CMAModelConfig],
+        'cma_grutopia': [cma_grutopia_exp_cfg, CMANet, CMAModelConfig],
+        'cma_grutopia_test': [cma_grutopia_test_exp_cfg, CMANet, CMAModelConfig],
+        'cma_grutopia_clip': [cma_grutopia_clip_exp_cfg, CMANet, CMAModelConfig],
+        'cma_your_data': [cma_your_data_exp_cfg, CMANet, CMAModelConfig],
         'rdp': [rdp_exp_cfg, RDPNet, RDPModelConfig],
         'navdp': [navdp_exp_cfg, NavDPNet, NavDPModelConfig],
     }
