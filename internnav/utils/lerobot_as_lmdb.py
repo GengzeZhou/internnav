@@ -54,17 +54,40 @@ class LerobotAsLmdb:
         depth_path = os.path.join(trajectory_path,"videos/chunk-000/observation.images.depth/depth.npy")
         
         df = pd.read_parquet(parquet_path)
+
+        # Helper function to safely convert DataFrame column to numpy array
+        def safe_to_numpy(column):
+            """
+            Safely convert DataFrame column to numpy array.
+            Handles both string-encoded arrays and proper arrays.
+            """
+            data_list = column.tolist()
+
+            # Check if elements are strings (e.g., "[-7.37,-1.96,0.0]")
+            if len(data_list) > 0 and isinstance(data_list[0], str):
+                try:
+                    # Parse string-encoded arrays
+                    parsed_list = [json.loads(item) for item in data_list]
+                    return np.array(parsed_list, dtype=np.float64)
+                except (json.JSONDecodeError, ValueError) as e:
+                    print(f"Warning: Failed to parse string data: {e}")
+                    # Fallback: try to convert directly
+                    return np.array(data_list)
+            else:
+                # Already proper format (list of lists or list of numbers)
+                return np.array(data_list, dtype=np.float64)
+
         data = {}
         data['episode_data']={}
         data['episode_data']['camera_info']={}
         data['episode_data']['camera_info']['pano_camera_0']={}
-        data['episode_data']['camera_info']['pano_camera_0']['position'] = np.array(df['observation.camera_position'].tolist())
-        data['episode_data']['camera_info']['pano_camera_0']['orientation'] = np.array(df['observation.camera_orientation'].tolist())
-        data['episode_data']['camera_info']['pano_camera_0']['yaw'] = np.array(df['observation.camera_yaw'].tolist())
+        data['episode_data']['camera_info']['pano_camera_0']['position'] = safe_to_numpy(df['observation.camera_position'])
+        data['episode_data']['camera_info']['pano_camera_0']['orientation'] = safe_to_numpy(df['observation.camera_orientation'])
+        data['episode_data']['camera_info']['pano_camera_0']['yaw'] = np.array(df['observation.camera_yaw'].tolist(), dtype=np.float64)
         data['episode_data']['robot_info']={}
-        data['episode_data']['robot_info']['position']=np.array(df['observation.robot_position'].tolist())
-        data['episode_data']['robot_info']['orientation']=np.array(df['observation.robot_orientation'].tolist())
-        data['episode_data']['robot_info']['yaw']=np.array(df['observation.robot_yaw'].tolist())
+        data['episode_data']['robot_info']['position'] = safe_to_numpy(df['observation.robot_position'])
+        data['episode_data']['robot_info']['orientation'] = safe_to_numpy(df['observation.robot_orientation'])
+        data['episode_data']['robot_info']['yaw'] = np.array(df['observation.robot_yaw'].tolist(), dtype=np.float64)
         data['episode_data']['progress']=np.array(df['observation.progress'].tolist())
         data['episode_data']['step']= np.array(df['observation.step'].tolist())
         data['episode_data']['action']= df['observation.action'].tolist()
