@@ -38,13 +38,23 @@ class CMALerobotDataset(BaseDataset):
         self.camera_name = self.config.il.camera_name
 
         self.lerobot_as_lmdb = LerobotAsLmdb(self.lerobot_features_dir)
-        self.lmdb_keys = self.lerobot_as_lmdb.get_all_keys()
+        all_lmdb_keys = self.lerobot_as_lmdb.get_all_keys()
+
+        # Filter LMDB keys based on dataset_data (if provided)
+        if dataset_data:
+            allowed_keys = set(dataset_data.keys())
+            self.lmdb_keys = [k for k in all_lmdb_keys if k in allowed_keys]
+            print(f"Filtered dataset: {len(all_lmdb_keys)} total episodes -> {len(self.lmdb_keys)} selected episodes")
+        else:
+            self.lmdb_keys = all_lmdb_keys
+            print(f"Using all {len(all_lmdb_keys)} episodes (no filtering)")
+
         self.length = len(self.lmdb_keys)
 
         # For CMA-CLIP
         self.use_clip_encoders = False
-        self.bert_tokenizer = None
-        if self.config.model.policy_name == 'CMA_CLIP_Policy':
+        self.bert_tokenizer = bert_tokenizer
+        if self.config.model.policy_name == ['CMA_CLIP_Policy', 'Seq2Seq_Policy']:
             self.is_clip_long = True
             self.bert_tokenizer = bert_tokenizer
 
@@ -57,6 +67,30 @@ class CMALerobotDataset(BaseDataset):
             self.BRG_to_RGB = True
         else:
             self.BRG_to_RGB = False
+
+    def _process_instruction(self, instruction_data):
+        """
+        Process instruction data that can be either string or dict format.
+
+        Args:
+            instruction_data: Either a string or dict with keys {formal, natural, casual}
+
+        Returns:
+            List of instruction strings to create samples from
+        """
+        if isinstance(instruction_data, dict):
+            # Dictionary format: extract all three styles
+            instructions = []
+            for style in ['formal', 'natural', 'casual']:
+                if style in instruction_data:
+                    instructions.append(instruction_data[style])
+            return instructions if instructions else [str(instruction_data)]
+        elif isinstance(instruction_data, str):
+            # String format: return as single-element list
+            return [instruction_data]
+        else:
+            # Fallback: convert to string
+            return [str(instruction_data)]
 
     def _load_next(self):
         if len(self._preload) == 0:
@@ -130,29 +164,30 @@ class CMALerobotDataset(BaseDataset):
 
                     episodes_in_json = data_to_load['episodes_in_json']
 
-                    if self.bert_tokenizer is not None:
-                        instructions = [
-                            episodes_in_json[ep_idx]['instruction_text']
-                            for ep_idx in range(len(episodes_in_json))
-                        ]
-                    else:
-                        instructions = [
-                            episodes_in_json[ep_idx]['instruction_tokens']
-                            for ep_idx in range(len(episodes_in_json))
-                        ]
-                    for instruction in instructions:
-                        new_data = self._create_new_data(data, yaws, instruction)
-                        if self.BRG_to_RGB:
-                            # This is for 3dgs dataset which is BRG format
-                            new_data['rgb'] = new_data['rgb'][..., ::-1]
-                            new_data['depth'] = new_data['depth'] * 100
-                        for k, v in new_data.items():
-                            if isinstance(v, np.ndarray):
-                                new_data[k] = v[: self.config.model.max_step]
-                        new_preload.append(new_data)
-                        finish_status_list.append(finish_status)
-                        fail_reasons_list.append(fail_reason)
-                        lengths.append(len(new_data))
+                    # Process instructions based on format (string vs dict)
+                    for ep_idx in range(len(episodes_in_json)):
+                        if self.bert_tokenizer is not None:
+                            instruction_text = episodes_in_json[ep_idx]['instruction_text']
+                            # Get list of instructions (1 for string, 3 for dict)
+                            instructions = self._process_instruction(instruction_text)
+                        else:
+                            # For pre-tokenized data, use instruction_tokens directly
+                            instructions = [episodes_in_json[ep_idx]['instruction_tokens']]
+
+                        # Create samples for each instruction
+                        for instruction in instructions:
+                            new_data = self._create_new_data(data, yaws, instruction)
+                            if self.BRG_to_RGB:
+                                # This is for 3dgs dataset which is BRG format
+                                new_data['rgb'] = new_data['rgb'][..., ::-1]
+                                new_data['depth'] = new_data['depth'] * 100
+                            for k, v in new_data.items():
+                                if isinstance(v, np.ndarray):
+                                    new_data[k] = v[: self.config.model.max_step]
+                            new_preload.append(new_data)
+                            finish_status_list.append(finish_status)
+                            fail_reasons_list.append(fail_reason)
+                            lengths.append(len(new_data))
 
             if self.bert_tokenizer is not None:
                 new_preload = extract_instruction_tokens(
@@ -201,7 +236,18 @@ class CMALerobotDataset(BaseDataset):
         )
 
     def __len__(self) -> int:
-        return self.length * 3  # each trajectory corresponds to 3 instructions
+        # Determine multiplier based on dataset type
+        # coarse: 3 instruction styles (formal, natural, casual)
+        # fine: 1 instruction style (string)
+        # train (coarse+fine mixed): average of 2
+        if 'coarse' in self.lerobot_features_dir.lower():
+            multiplier = 3
+        elif 'fine' in self.lerobot_features_dir.lower():
+            multiplier = 1
+        else:
+            # train or mixed dataset
+            multiplier = 2
+        return len(self.lmdb_keys) * multiplier
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()

@@ -30,9 +30,9 @@ from internnav.trainer import CMATrainer, RDPTrainer, NavDPTrainer
 from scripts.train.configs import (
     cma_exp_cfg,
     cma_plus_exp_cfg,
-    cma_grutopia_exp_cfg,
-    cma_grutopia_test_exp_cfg,
-    cma_grutopia_clip_exp_cfg,
+    # cma_grutopia_exp_cfg,
+    # cma_grutopia_test_exp_cfg,
+    # cma_grutopia_clip_exp_cfg,
     cma_your_data_exp_cfg,
     rdp_exp_cfg,
     seq2seq_exp_cfg,
@@ -205,7 +205,10 @@ def main(config, model_class, model_config_class):
             else:
                 dataset_root_dir = config.il.dataset_r2r_root_dir
                 dataset_type = 'r2r'
-            train_dataset_data = load_dataset(dataset_root_dir, 'train', logger=train_logger, dataset_type=dataset_type)
+
+            # Use configured dataset_split, default to 'train'
+            dataset_split = getattr(config.il, 'dataset_split', 'train')
+            train_dataset_data = load_dataset(dataset_root_dir, dataset_split, logger=train_logger, dataset_type=dataset_type)
             global_batch_size = config.il.batch_size * len(config.torch_gpu_ids)
 
         # ------------ data_loader ------------
@@ -326,9 +329,9 @@ if __name__ == '__main__':
         'seq2seq_your_data': [seq2seq_your_data_exp_cfg, Seq2SeqNet, Seq2SeqModelConfig],
         'cma': [cma_exp_cfg, CMANet, CMAModelConfig],
         'cma_plus': [cma_plus_exp_cfg, CMANet, CMAModelConfig],
-        'cma_grutopia': [cma_grutopia_exp_cfg, CMANet, CMAModelConfig],
-        'cma_grutopia_test': [cma_grutopia_test_exp_cfg, CMANet, CMAModelConfig],
-        'cma_grutopia_clip': [cma_grutopia_clip_exp_cfg, CMANet, CMAModelConfig],
+        # 'cma_grutopia': [cma_grutopia_exp_cfg, CMANet, CMAModelConfig],
+        # 'cma_grutopia_test': [cma_grutopia_test_exp_cfg, CMANet, CMAModelConfig],
+        # 'cma_grutopia_clip': [cma_grutopia_clip_exp_cfg, CMANet, CMAModelConfig],
         'cma_your_data': [cma_your_data_exp_cfg, CMANet, CMAModelConfig],
         'rdp': [rdp_exp_cfg, RDPNet, RDPModelConfig],
         'navdp': [navdp_exp_cfg, NavDPNet, NavDPModelConfig],

@@ -44,6 +44,14 @@ case $MODEL in
         export CUDA_VISIBLE_DEVICES=0
         NUM_GPUS=1
         ;;
+    "seq2seq_your_data")
+        export CUDA_VISIBLE_DEVICES=0
+        NUM_GPUS=1
+        ;;
+    "cma_your_data")
+        export CUDA_VISIBLE_DEVICES=0
+        NUM_GPUS=1
+        ;;
     "navdp")
         export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
         NUM_GPUS=8

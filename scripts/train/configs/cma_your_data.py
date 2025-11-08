@@ -108,9 +108,9 @@ cma_your_data_exp_cfg = ExpCfg(
         # Your dataset configuration
         dataset_r2r_root_dir='data/vln_pe/raw_data/r2r',  # Fallback, not used for your data
         dataset_3dgs_root_dir='',
-        dataset_grutopia10_root_dir='/mnt/6t/dataset/my_vln_pe/raw_data/vlnverse',  # Your raw data
+        dataset_grutopia10_root_dir='/data2/vlnverse/my_vln_pe/raw_data/vlnverse',  # Your raw data
         lmdb_features_dir='grutopia',  # This triggers grutopia dataset loading
-        lerobot_features_dir='/mnt/6t/dataset/my_vln_pe/traj_data/vlnverse',  # Your trajectory data
+        lerobot_features_dir='/data2/vlnverse/my_vln_pe/traj_data/vlnverse',  # Your trajectory data
         camera_name='pano_camera_0',
         report_to='tensorboard',  # Changed from wandb to tensorboard for simplicity - change to 'none' if you don't want logging
         ddp_find_unused_parameters=False,  # Set to False for single GPU training
